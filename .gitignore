@@ -1,68 +1,33 @@
-# .venv/
-# __pycache__/
-# *.pyc
-# instance/
-# models/archive/
-# models/*.candidate*
-# data/raw/*.backup-*.csv
-# .pytest_cache/
-# python/Lib/
-
-
-# ===== Portable Python runtime (biggest culprit, usually hundreds of MB) =====
 python/
-
-# ===== Python cache / build =====
 __pycache__/
 *.py[cod]
-*.pyo
 *.egg-info/
 build/
 dist/
 .pytest_cache/
 .coverage
 htmlcov/
-
-# ===== Virtual environments =====
 venv/
 .venv/
 env/
 ENV/
-
-# ===== Large data and trained models =====
-data/
-models/
-*.csv
-*.parquet
-*.h5
-*.hdf5
-*.pkl
-*.pickle
-*.joblib
-*.pt
-*.pth
-*.onnx
-*.npy
-*.npz
+models/archive/
+models/*.candidate.joblib
+models/*.candidate_metrics.json
+data/raw/*.backup-*.csv
 *.zip
 *.tar
 *.gz
 *.7z
 *.rar
-
-# ===== Generated outputs =====
 reports/
 instance/
 *.db
 *.sqlite
 *.sqlite3
 *.log
-
-# ===== Secrets =====
 .env
 *.env
-
-# ===== IDE / OS =====
 .vscode/
 .idea/
 .DS_Store
