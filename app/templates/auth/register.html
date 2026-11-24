@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Create account - HealthPredict{% endblock %}
+{% block content %}
+<div class="auth-wrap"><div class="row justify-content-center w-100 mx-0"><div class="col-xl-9 col-lg-10 px-0">
+<div class="card auth-card fade-up"><div class="row g-0">
+  {% set side_title = "Early screening for a healthier you." %}
+  {% include "auth/_side.html" %}
+  <div class="col-lg-7 auth-form">
+    <h1 class="h3 mb-1">Create your account</h1>
+    <p class="text-muted mb-4">Free, takes under a minute.</p>
+    <form method="post" novalidate data-loading="Creating account...">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {% for name, label, type, icon, ac in [('name','Full name','text','bi-person','name'),('email','Email','email','bi-envelope','email'),
+                                            ('password','Password','password','bi-lock','new-password'),('confirm','Confirm password','password','bi-lock-fill','new-password')] %}
+      <div class="mb-3">
+        <label class="form-label" for="{{ name }}">{{ label }}</label>
+        <div class="input-group has-validation">
+          <span class="input-group-text"><i class="bi {{ icon }}"></i></span>
+          <input id="{{ name }}" type="{{ type }}" name="{{ name }}" value="{{ form.get(name, '') if type != 'password' else '' }}" autocomplete="{{ ac }}"
+                 class="form-control {% if errors.get(name) %}is-invalid{% endif %}" required {% if name == 'password' %}minlength="8" placeholder="At least 8 characters"{% endif %}>
+          {% if type == 'password' %}<button type="button" class="btn btn-light border pw-toggle" data-toggle-pw="{{ name }}" aria-label="Show password"><i class="bi bi-eye"></i></button>{% endif %}
+          {% if errors.get(name) %}<div class="invalid-feedback">{{ errors[name] }}</div>{% endif %}
+        </div>
+      </div>
+      {% endfor %}
+      <button type="submit" class="btn btn-primary btn-lg w-100 mt-2">Create account</button>
+      <p class="small text-muted mt-3 mb-0 text-center"><i class="bi bi-shield-check"></i> We only store what is needed for your reports.</p>
+    </form>
+    <p class="mt-4 mb-0 text-center text-muted">Already registered? <a href="{{ url_for('auth.login') }}" class="fw-semibold">Log in</a></p>
+  </div>
+</div></div>
+</div></div></div>
+{% endblock %}

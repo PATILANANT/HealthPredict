@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% from "_macros.html" import latest_cards, risk_badge, mod_icon with context %}
+{% block title %}Combined health report - HealthPredict{% endblock %}
+{% block content %}
+{% set levels = latest.values()|map(attribute='risk_level')|list %}
+{% set overall = 'High' if 'High' in levels else ('Moderate' if 'Moderate' in levels else 'Low') %}
+<div class="page-header d-flex flex-wrap justify-content-between align-items-center gap-3">
+  <div><div class="section-title">Report</div><h1>Combined health risk report</h1>
+    <div class="text-muted">The latest result from each screening for <b>{{ owner.name }}</b> · generated {{ now.strftime('%d %b %Y') if now else '' }}</div></div>
+  {% if latest %}<div class="d-flex gap-2 no-print">
+    <button onclick="window.print()" class="btn btn-light"><i class="bi bi-printer"></i> Print</button>
+    <a href="{{ url_for('report.combined_pdf') }}" class="btn btn-primary"><i class="bi bi-file-earmark-pdf"></i> Download PDF</a></div>{% endif %}
+</div>
+
+{% if latest %}
+<div class="result-hero tone-{{ overall }} mb-4">
+  <div class="d-flex flex-wrap align-items-center gap-4">
+    <div class="mod-icon mod-icon-lg risk-{{ overall }}"><i class="bi {{ {'High': 'bi-exclamation-triangle', 'Moderate': 'bi-exclamation-circle', 'Low': 'bi-check2-circle'}[overall] }}"></i></div>
+    <div class="flex-grow-1">
+      <div class="section-title">Overall</div>
+      <div class="result-label" style="font-size:1.9rem">{{ overall }} risk</div>
+      <div class="text-muted">
+        {% if overall == 'High' %}At least one screening shows a <b>high</b> risk. Please book a consultation with a doctor and share this report.
+        {% elif overall == 'Moderate' %}Some indicators are elevated. A routine check-up with a doctor is recommended.
+        {% else %}No elevated risk indicators were found. Keep up healthy habits and regular check-ups.{% endif %}
+      </div>
+    </div>
+    <div class="text-center"><div class="fs-2 fw-bold">{{ latest|length }}/{{ MODULES|length }}</div><div class="small text-muted">screenings done</div></div>
+  </div>
+</div>
+{% endif %}
+
+{{ latest_cards(latest) }}
+
+{% if latest %}
+<div class="row g-4 mt-1">
+  {% for key, p in latest.items() %}
+  <div class="col-lg-4">
+    <div class="hp-card h-100">
+      <div class="d-flex align-items-center gap-2 mb-3">{{ mod_icon(key, 'mod-icon-sm') }}<h6 class="mb-0">{{ MODULES[key].title }}: next steps</h6></div>
+      <ul class="list-unstyled tip-list small mb-0">
+        {% for tip in advice_for(key, p.risk_level) %}<li class="d-flex gap-2"><i class="bi bi-check2-circle"></i><span>{{ tip }}</span></li>{% endfor %}
+      </ul>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% if latest|length < MODULES|length %}
+<div class="hp-card mt-4 d-flex flex-wrap align-items-center justify-content-between gap-3" style="background: var(--hp-grad-soft)">
+  <div><b>Complete your picture.</b> <span class="text-muted">Finish the remaining screenings for a full report.</span></div>
+  <div class="d-flex gap-2">{% for key, m in MODULES.items() if key not in latest %}<a class="btn btn-primary btn-sm" href="{{ url_for('predict.form', module=key) }}">{{ m.title }}</a>{% endfor %}</div>
+</div>
+{% endif %}
+{% else %}
+<div class="hp-card mt-4"><div class="empty"><i class="bi bi-clipboard2-plus"></i>You have not completed any screening yet. Pick one above to get started.</div></div>
+{% endif %}
+<div class="alert alert-warning small mt-4 mb-0"><i class="bi bi-info-circle"></i> {{ DISCLAIMER }}</div>
+{% endblock %}

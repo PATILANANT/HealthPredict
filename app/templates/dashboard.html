@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% from "_macros.html" import history_table, latest_cards with context %}
+{% block title %}My dashboard - HealthPredict{% endblock %}
+{% block content %}
+{% set levels = latest.values()|map(attribute='risk_level')|list %}
+{% set overall = 'High' if 'High' in levels else ('Moderate' if 'Moderate' in levels else ('Low' if levels else none)) %}
+
+<div class="hero p-4 p-md-5 mb-4 fade-up">
+  <div class="row g-4 align-items-center">
+    <div class="col-lg-7">
+      <div class="d-flex align-items-center gap-3 mb-3">
+        <span class="avatar avatar-lg" style="background:rgba(255,255,255,.2)">{{ current_user.name[:1]|upper }}</span>
+        <div><div class="small opacity-75">Welcome back</div><h1 class="h2 mb-0">Hello, {{ current_user.name }}</h1></div>
+      </div>
+      <p class="lead mb-0">
+        {% if overall == 'High' %}One of your latest screenings shows a <b>high</b> risk. Please consider speaking with a doctor soon.
+        {% elif overall == 'Moderate' %}Some indicators are elevated. A routine check-up is a good idea.
+        {% elif overall == 'Low' %}Your latest screenings look good. Keep up the healthy habits!
+        {% else %}Start with any screening below. Each one takes about two minutes.{% endif %}
+      </p>
+    </div>
+    <div class="col-lg-5">
+      <div class="row g-3">
+        <div class="col-4"><div class="hero-stat text-center"><div class="num">{{ counts.total }}</div><div class="lbl">screenings</div></div></div>
+        <div class="col-4"><div class="hero-stat text-center"><div class="num">{{ latest|length }}/3</div><div class="lbl">modules done</div></div></div>
+        <div class="col-4"><div class="hero-stat text-center"><div class="num">{{ counts.high }}</div><div class="lbl">high-risk results</div></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+  <div><div class="section-title">Overview</div><h2 class="h4 mb-0">Latest results</h2></div>
+  <a href="{{ url_for('report.combined') }}" class="btn btn-primary"><i class="bi bi-file-earmark-medical"></i> Combined health report</a>
+</div>
+{{ latest_cards(latest) }}
+
+<div class="row g-4 mt-1">
+  <div class="col-lg-7">
+    <div class="hp-card h-100">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="mb-0">Risk over time</h5><span class="small text-muted">probability per screening (%)</span>
+      </div>
+      {% if history|length > 1 %}
+        <div style="height:280px"><canvas id="trend"></canvas></div>
+      {% else %}
+        <div class="empty"><i class="bi bi-graph-up"></i>Do a few screenings over time to see your trend here.</div>
+      {% endif %}
+    </div>
+  </div>
+  <div class="col-lg-5">
+    <div class="hp-card h-100">
+      <h5 class="mb-3">Quick start</h5>
+      <div class="d-grid gap-2">
+        {% for key, m in MODULES.items() %}
+        <a href="{{ url_for('predict.form', module=key) }}" class="btn btn-light text-start d-flex align-items-center gap-3 py-3">
+          <span class="mod-icon mod-icon-sm mod-{{ m.color }}"><i class="bi {{ m.icon }}"></i></span>
+          <span class="flex-grow-1"><span class="d-block fw-semibold">{{ m.title }}</span><span class="small text-muted fw-normal">{{ m.tagline }}</span></span>
+          <i class="bi bi-chevron-right text-muted"></i>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card mt-4">
+  <div class="card-body p-4">
+    <div class="d-flex justify-content-between align-items-center mb-2"><h5 class="mb-0">History</h5><span class="small text-muted">last 50 screenings</span></div>
+    {{ history_table(history) }}
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+{% if history|length > 1 %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+  const trend = {{ trend|tojson }};
+  const meta = {{ MODULES|tojson }};
+  const colors = { violet: '#7c3aed', rose: '#e11d48', sky: '#0284c7' };
+  let chart;
+  function draw() {
+    const dark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+    const grid = dark ? 'rgba(255,255,255,.08)' : 'rgba(16,24,40,.06)', ink = dark ? '#98a2b3' : '#667085';
+    const labels = trend.labels;
+    const datasets = Object.entries(trend.series).filter(([, pts]) => pts.some(v => v !== null)).map(([k, pts]) => ({
+      label: meta[k].title, data: pts, borderColor: colors[meta[k].color], pointBackgroundColor: colors[meta[k].color],
+      backgroundColor: colors[meta[k].color] + '22', tension: .35, pointRadius: 4, pointHoverRadius: 6, spanGaps: true, fill: false }));
+    if (chart) chart.destroy();
+    chart = new Chart(document.getElementById('trend'), { type: 'line', data: { labels, datasets },
+      options: { maintainAspectRatio: false, interaction: { mode: 'nearest', intersect: false },
+        plugins: { legend: { labels: { color: ink, usePointStyle: true } } },
+        scales: { y: { min: 0, max: 100, grid: { color: grid }, ticks: { color: ink, callback: v => v + '%' } },
+                  x: { grid: { display: false }, ticks: { color: ink, maxRotation: 0, autoSkip: true } } } } });
+  }
+  draw(); document.addEventListener('hp-theme', draw);
+</script>
+{% endif %}
+{% endblock %}

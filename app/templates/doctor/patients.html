@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% from "_macros.html" import risk_badge with context %}
+{% block title %}Patients - HealthPredict{% endblock %}
+{% block content %}
+<div class="page-header d-flex flex-wrap justify-content-between align-items-center gap-3">
+  <div><div class="section-title">Clinician view</div><h1>Patients</h1><div class="text-muted">{{ rows|length }} patient{{ 's' if rows|length != 1 }} · read-only access to screening results</div></div>
+  <form class="d-flex gap-2" role="search">
+    <div class="input-group"><span class="input-group-text"><i class="bi bi-search"></i></span>
+      <input name="q" value="{{ q }}" class="form-control" placeholder="Search name or email"></div>
+    <button class="btn btn-primary">Search</button>
+  </form>
+</div>
+<div class="card"><div class="card-body p-2 p-md-3">
+<div class="table-responsive">
+<table class="table align-middle mb-0">
+  <thead><tr><th>Patient</th>{% for key, m in MODULES.items() %}<th>{{ m.title }}</th>{% endfor %}<th>High-risk</th><th></th></tr></thead>
+  <tbody>
+  {% for u, latest, high in rows %}
+  <tr>
+    <td><div class="d-flex align-items-center gap-2"><span class="avatar">{{ u.name[:1]|upper }}</span>
+      <div><div class="fw-semibold">{{ u.name }}</div><div class="small text-muted">{{ u.email }}</div></div></div></td>
+    {% for key in MODULES %}<td>{% if latest.get(key) %}{{ risk_badge(latest[key].risk_level) }}<div class="small text-muted mt-1">{{ latest[key].label }}</div>{% else %}<span class="text-muted small">—</span>{% endif %}</td>{% endfor %}
+    <td>{% if high %}<span class="risk-pill risk-High">{{ high }}</span>{% else %}<span class="text-muted">0</span>{% endif %}</td>
+    <td class="text-end"><a href="{{ url_for('doctor.patient', user_id=u.id) }}" class="btn btn-sm btn-outline-primary">Open <i class="bi bi-arrow-right"></i></a></td>
+  </tr>
+  {% else %}<tr><td colspan="6"><div class="empty"><i class="bi bi-people"></i>No patients found.</div></td></tr>{% endfor %}
+  </tbody>
+</table>
+</div>
+</div></div>
+{% endblock %}

@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% from "_macros.html" import mod_icon with context %}
+{% block title %}{{ spec.title }} screening - HealthPredict{% endblock %}
+{% block content %}
+{% set rep = registry.metrics(module) %}
+<div class="page-header d-flex flex-wrap align-items-center gap-3">
+  {{ mod_icon(module, 'mod-icon-lg') }}
+  <div>
+    <h1>{{ spec.title }} screening</h1>
+    <div class="text-muted">{{ spec.summary }}</div>
+  </div>
+</div>
+
+{% if not registry.get(module) %}
+  <div class="alert alert-secondary"><i class="bi bi-hourglass-split"></i> {{ registry.errors.get(module) }}</div>
+{% endif %}
+
+<div class="row g-4">
+  <div class="col-lg-8">
+    <form method="post" novalidate data-loading="Analysing...">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="card overflow-hidden">
+      {% for group, fields in grouped_fields(module) %}
+        <div class="form-section">
+          <div class="form-section-title"><span class="num">{{ loop.index }}</span>{{ group }}</div>
+          <div class="row g-3">
+          {% for f in fields %}
+            {% set err = errors.get(f.name) %}
+            {% set val = values.get(f.name, '') %}
+            {% set optional = f.required is sameas false %}
+
+            {% if f.type == 'text' %}
+            <div class="col-12">
+              <label class="form-label" for="{{ f.name }}">{{ f.label }}</label>
+              <textarea id="{{ f.name }}" name="{{ f.name }}" maxlength="{{ f.max_length }}" data-counter="charCount"
+                        class="form-control journal {% if err %}is-invalid{% endif %}"
+                        placeholder="Write freely, the way you would in a post or a diary. For example: Lately I can't sleep and I feel like nothing I do matters...">{{ val }}</textarea>
+              {% if err %}<div class="invalid-feedback">{{ err }}</div>{% endif %}
+              <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-2">
+                <div class="d-flex flex-wrap gap-2 align-items-center">
+                  <span class="small text-muted">Try an example:</span>
+                  <button type="button" class="example-chip" data-example="Had a really nice day today. Went to college, played cricket with friends in the evening and had dinner with my family. Looking forward to the weekend trip.">A good day</button>
+                  <button type="button" class="example-chip" data-example="Exams start next week and I still have three assignments pending. My manager keeps adding work and I have no time to relax. I am so stressed and tense all the time.">Exam stress</button>
+                  <button type="button" class="example-chip" data-example="I feel empty and sad every single day. Nothing makes me happy anymore, I have lost interest in everything I used to enjoy and I just stay in bed.">Feeling low</button>
+                </div>
+                <span class="small text-muted" id="charCount"></span>
+              </div>
+              <div class="form-text mt-2">{{ f.help }}</div>
+            </div>
+
+            {% elif f.type == 'consent' %}
+            <div class="col-12">
+              <div class="consent-box form-check ps-5">
+                <input class="form-check-input {% if err %}is-invalid{% endif %}" type="checkbox" name="{{ f.name }}" id="{{ f.name }}" {% if val %}checked{% endif %}>
+                <label class="form-check-label" for="{{ f.name }}"><i class="bi bi-shield-lock me-1"></i>{{ f.label }}</label>
+                {% if err %}<div class="invalid-feedback">{{ err }}</div>{% endif %}
+              </div>
+            </div>
+
+            {% elif f.type == 'select' and f.options|length <= 4 %}
+            <div class="col-md-6">
+              <label class="form-label d-block">{{ f.label }}</label>
+              <div class="seg {% if err %}is-invalid{% endif %}" role="group">
+                {% for v, label in f.options %}
+                <input type="radio" class="btn-check" name="{{ f.name }}" id="{{ f.name }}-{{ loop.index }}" value="{{ v }}" autocomplete="off" {% if val|string == v|string %}checked{% endif %}>
+                <label class="btn" for="{{ f.name }}-{{ loop.index }}">{{ label }}</label>
+                {% endfor %}
+              </div>
+              {% if err %}<div class="invalid-feedback d-block">{{ err }}</div>{% endif %}
+            </div>
+
+            {% elif f.type == 'select' %}
+            <div class="col-md-6">
+              <label class="form-label" for="{{ f.name }}">{{ f.label }}</label>
+              <select id="{{ f.name }}" name="{{ f.name }}" class="form-select {% if err %}is-invalid{% endif %}">
+                <option value="">Select...</option>
+                {% for v, label in f.options %}<option value="{{ v }}" {% if val|string == v|string %}selected{% endif %}>{{ label }}</option>{% endfor %}
+              </select>
+              {% if err %}<div class="invalid-feedback">{{ err }}</div>{% endif %}
+            </div>
+
+            {% else %}
+            <div class="col-md-6">
+              <label class="form-label" for="{{ f.name }}">{{ f.label }}
+                {% if optional %}<span class="text-muted fw-normal small">· optional</span>{% endif %}</label>
+              <div class="input-group {% if err %}has-validation{% endif %}">
+                <input id="{{ f.name }}" type="number" name="{{ f.name }}" value="{{ val }}" min="{{ f.min }}" max="{{ f.max }}" step="{{ f.step }}" inputmode="decimal"
+                       class="form-control {% if err %}is-invalid{% endif %}" placeholder="Range {{ f.min }}–{{ f.max }}" {% if not optional %}required{% endif %}>
+                {% if f.unit %}<span class="input-group-text">{{ f.unit }}</span>{% endif %}
+                {% if err %}<div class="invalid-feedback">{{ err }}</div>{% endif %}
+              </div>
+              <div class="form-text">
+                {% if f.normal %}<i class="bi bi-check2-circle text-success"></i> Typical: {{ f.normal[0] }}–{{ f.normal[1] }} {{ f.unit }}. {% endif %}{{ f.help or '' }}
+                {% if f.bmi_calc %}<a class="ms-1" data-bs-toggle="collapse" href="#bmi-{{ f.name }}" role="button">Don't know it? Calculate</a>{% endif %}
+              </div>
+              {% if f.bmi_calc %}
+              <div class="collapse mt-2" id="bmi-{{ f.name }}">
+                <div class="bmi-calc" data-bmi-target="{{ f.name }}">
+                  <div class="row g-2 align-items-center">
+                    <div class="col-5"><div class="input-group input-group-sm"><input class="form-control" name="_height" type="number" placeholder="Height"><span class="input-group-text">cm</span></div></div>
+                    <div class="col-4"><div class="input-group input-group-sm"><input class="form-control" name="_weight" type="number" placeholder="Weight"><span class="input-group-text">kg</span></div></div>
+                    <div class="col-3 small fw-bold bmi-result"></div>
+                  </div>
+                </div>
+              </div>
+              {% endif %}
+            </div>
+            {% endif %}
+          {% endfor %}
+          </div>
+        </div>
+      {% endfor %}
+        <div class="form-section d-flex flex-wrap justify-content-between align-items-center gap-3" style="background: rgba(102,112,133,.04)">
+          <span class="small text-muted"><i class="bi bi-lock"></i> Results are only visible to you{% if module != 'mental_health' %} and doctors you consult on this platform{% endif %}.</span>
+          <button type="submit" class="btn btn-primary btn-lg px-4" {% if not registry.get(module) %}disabled{% endif %}><i class="bi bi-cpu me-1"></i> Get my result</button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="sticky-side d-grid gap-3">
+      <div class="hp-card">
+        <div class="section-title mb-2">About this screening</div>
+        <ul class="list-unstyled tip-list small mb-0">
+          <li><i class="bi bi-clock me-2"></i>Takes about {{ '1 minute' if module == 'mental_health' else '2 minutes' }}</li>
+          <li><i class="bi bi-database me-2"></i>Trained on {{ spec.dataset }}</li>
+          {% if rep %}<li><i class="bi bi-cpu me-2"></i>Model: {{ rep.best_model }}</li>{% endif %}
+          {% if module == 'mental_health' %}
+            <li><i class="bi bi-translate me-2"></i>Works best in English with 2–5 sentences</li>
+            <li><i class="bi bi-shield-check me-2"></i>Your text is never saved</li>
+          {% else %}
+            <li><i class="bi bi-ui-checks me-2"></i>Optional fields can be left blank</li>
+            <li><i class="bi bi-file-earmark-medical me-2"></i>Use values from a recent lab report if you have one</li>
+          {% endif %}
+        </ul>
+        <a href="{{ url_for('main.metrics', module=module) }}" class="small d-inline-block mt-2">How accurate is this model? <i class="bi bi-arrow-right"></i></a>
+      </div>
+      <div class="hp-card" style="background: var(--hp-grad-soft)">
+        <div class="d-flex gap-2"><i class="bi bi-info-circle text-primary"></i>
+          <div class="small">This is a <b>screening aid</b>, not a diagnosis. A doctor should always confirm any result.</div></div>
+      </div>
+      {% if module == 'mental_health' %}
+      <div class="hp-card">
+        <div class="small"><i class="bi bi-telephone text-danger me-1"></i><b>Need to talk now?</b><br>Tele-MANAS <b>14416</b> or 1-800-891-4416 - free, 24x7, confidential.</div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

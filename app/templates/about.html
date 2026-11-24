@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% from "_macros.html" import mod_icon with context %}
+{% block title %}About - HealthPredict{% endblock %}
+{% block content %}
+<div class="hero p-4 p-md-5 mb-4">
+  <span class="hero-badge mb-3"><i class="bi bi-mortarboard"></i> Final-year project</span>
+  <h1 class="h2 mb-2">Detection and Prediction of Mental Health Disorders from Social Media Data and Prediction of Brain Stroke and Diabetes using Machine Learning</h1>
+  <p class="lead mb-0">Guided by Prof. R. P. Bagawade</p>
+</div>
+<div class="row g-4">
+  <div class="col-lg-8">
+    <div class="hp-card mb-4">
+      <h5 class="mb-3">How the system works</h5>
+      {% for n, title, text in [(1, 'Data collection', 'Three public Kaggle datasets: ~51k mental-health statements, 5,110 stroke records and the 768-record Pima diabetes database.'),
+                                (2, 'Preprocessing', 'Missing-value imputation, encoding, scaling and SMOTE for the imbalanced stroke data. For text: cleaning, negation marking, spelling normalisation, stemming and TF-IDF.'),
+                                (3, 'Model development', 'Up to 12 classifiers per module: LR, SVM, KNN, NB, DT, RF, Extra Trees, AdaBoost, Gradient Boosting, XGBoost, Voting and Stacking.'),
+                                (4, 'Evaluation', 'Accuracy, precision, recall, F1, specificity and ROC-AUC on held-out test data. The best model is chosen on cross-validation, never on the test set.'),
+                                (5, 'Integration', 'This web app, a rule-based safety layer, PDF reports, a doctor view, an admin dashboard and a REST API.')] %}
+      <div class="d-flex gap-3 mb-3"><span class="step-num flex-shrink-0">{{ n }}</span><div><div class="fw-bold">{{ title }}</div><div class="small text-muted">{{ text }}</div></div></div>
+      {% endfor %}
+    </div>
+    <div class="row g-3">
+      {% for key, m in MODULES.items() %}{% set h = hl.get(key) %}
+      <div class="col-md-4"><a href="{{ url_for('main.metrics', module=key) }}" class="text-decoration-none text-body">
+        <div class="hp-card card-hover h-100">{{ mod_icon(key) }}<div class="fw-bold mt-2">{{ m.title }}</div>
+          {% if h %}<div class="small text-muted">{{ h.best }}</div><div class="small mt-1">{% if key == 'mental_health' %}Distress acc. <b>{{ h.distress.accuracy|pct(0) }}</b>{% else %}Recall <b>{{ h.test.recall|pct(0) }}</b> · AUC <b>{{ h.test.roc_auc|pct(0) }}</b>{% endif %}</div>{% endif %}
+          <div class="small mt-2 text-primary">Model comparison <i class="bi bi-arrow-right"></i></div></div></a></div>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="hp-card mb-3">
+      <h5 class="mb-3">Team</h5>
+      {% for roll, name in [('23121004', 'Vivek Sharad Sonawane'), ('23121013', 'Sangram Bhimrao Virkar'), ('23121029', 'Anant Anil Patil')] %}
+      <div class="d-flex align-items-center gap-3 mb-3"><span class="avatar">{{ name[:1] }}</span><div><div class="fw-semibold">{{ name }}</div><div class="small text-muted">{{ roll }}</div></div></div>
+      {% endfor %}
+    </div>
+    <div class="alert alert-warning"><b>Important.</b> {{ DISCLAIMER }}</div>
+  </div>
+</div>
+{% endblock %}

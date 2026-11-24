@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}{{ MODULES[module].title }} model performance{% endblock %}
+{% block content %}
+{% from "_macros.html" import mod_icon with context %}
+<div class="page-header d-flex flex-wrap align-items-center gap-3">
+  {{ mod_icon(module, 'mod-icon-lg') }}
+  <div><div class="section-title">Model performance</div><h1 class="mb-0">{{ MODULES[module].title }}: classifier comparison</h1></div>
+</div>
+{% if not report %}
+  <div class="alert alert-secondary">This module has not been trained yet.</div>
+{% else %}
+{% set multiclass = report.task == 'multiclass' %}
+{% set bt = report.models[report.best_model].test %}
+<div class="row g-3 mb-4">
+  <div class="col-md-4"><div class="hp-card stat-tile h-100"><span class="ic ic-indigo"><i class="bi bi-trophy"></i></span>
+    <div><div class="small text-muted">Selected model</div><div class="fw-bold fs-5">{{ report.best_model }}</div><div class="small text-muted">on {{ report.selection_metric|replace('_', ' ') }} = {{ report.selection_score }}</div></div></div></div>
+  {% for lbl, key in ([('Accuracy', 'accuracy'), ('Macro F1', 'f1'), ('Macro recall', 'recall')] if multiclass else [('Recall (cases caught)', 'recall'), ('ROC-AUC', 'roc_auc'), ('F1-score', 'f1')]) %}
+  <div class="col-4 col-md"><div class="hp-card h-100 text-center"><div class="small text-muted">{{ lbl }}</div><div class="fs-3 fw-bold">{{ bt[key]|pct }}</div></div></div>
+  {% endfor %}
+</div>
+<p class="text-muted small">Trained {{ report.trained_at|replace('T', ' ') }} · train {{ report.n_train }} / test {{ report.n_test }} records
+  {% if report.smote %}· SMOTE applied to training folds{% endif %}{% if report.distress_binary_test %} · Distress vs Normal accuracy <b>{{ report.distress_binary_test.accuracy|pct }}</b>{% endif %}</p>
+
+<ul class="nav nav-tabs" role="tablist">
+  <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-table">Table</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-chart">Chart</button></li>
+  {% if report.fairness %}<li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-fair">Fairness</button></li>{% endif %}
+  {% if multiclass %}<li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-class">Per class</button></li>{% endif %}
+</ul>
+<div class="tab-content card border-top-0 p-3 p-md-4" style="border-top-left-radius:0;border-top-right-radius:0">
+  <div class="tab-pane fade show active" id="tab-table">
+    <p class="small text-muted">Scores on the held-out <b>test set</b>{% if not multiclass %} at each model's tuned threshold{% endif %}{% if multiclass %} (macro-averaged over {{ report.labels|length }} classes){% endif %}.</p>
+    <div class="table-responsive">
+    <table class="table table-sm table-hover table-metrics">
+      <thead><tr><th>Classifier</th><th>Accuracy</th><th>Precision</th><th>Recall</th><th>F1</th>
+        {% if multiclass %}<th>Weighted F1</th><th>Val macro-F1</th>{% else %}<th>Specificity</th><th>ROC-AUC</th><th>Threshold</th><th>CV {{ report.selection_metric[3:]|upper }}</th>{% endif %}<th>Time (s)</th></tr></thead>
+      <tbody>
+      {% for name, r in report.models|dictsort(by='key') %}
+        {% set t = r.test %}
+        <tr class="{% if name == report.best_model %}best{% endif %}">
+          <td>{{ name }}{% if name == report.best_model %} <i class="bi bi-star-fill text-warning"></i>{% endif %}</td>
+          <td>{{ t.accuracy|pct }}</td><td>{{ t.precision|pct }}</td><td>{{ t.recall|pct }}</td><td>{{ t.f1|pct }}</td>
+          {% if multiclass %}<td>{{ t.f1_weighted|pct }}</td><td>{{ r.val.f1|pct }}</td>
+          {% else %}<td>{{ t.specificity|pct }}</td><td>{{ t.roc_auc|pct }}</td><td>{{ t.threshold }}</td><td>{{ r.cv[report.selection_metric[3:]]|pct }}</td>{% endif %}
+          <td>{{ r.seconds }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% if not multiclass %}
+    <p class="small text-muted mb-0">Accuracy alone is misleading on imbalanced data (e.g. stroke: ~5% positive) - compare recall, F1 and ROC-AUC.
+      The decision threshold of every model was tuned with 5-fold cross-validation on the training set only (F{{ report.threshold_beta|int }}-score).</p>
+    {% endif %}
+  </div>
+  <div class="tab-pane fade" id="tab-chart"><canvas id="chart" height="120"></canvas></div>
+  {% if report.fairness %}
+  <div class="tab-pane fade" id="tab-fair">
+    <p class="small text-muted">Best model, test set: does it work equally well for each group?</p>
+    {% for gname, groups in report.fairness.items() %}
+      <h6 class="mt-2">{{ gname|replace('_', ' ')|title }}</h6>
+      <table class="table table-sm w-auto"><thead><tr><th>Group</th><th>n</th><th>Positives</th><th>Recall</th><th>Precision</th><th>Flagged</th></tr></thead><tbody>
+      {% for g, m in groups.items() %}<tr><td>{{ g }}</td><td>{{ m.n }}</td><td>{{ m.positives }}</td><td>{{ m.recall|pct }}</td><td>{{ m.precision|pct }}</td><td>{{ m.flagged_rate|pct }}</td></tr>{% endfor %}
+      </tbody></table>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% if multiclass %}
+  <div class="tab-pane fade" id="tab-class">
+    {% set pc = report.models[report.best_model].test.per_class %}
+    <table class="table table-sm w-auto"><thead><tr><th>Category</th><th>Precision</th><th>Recall</th><th>F1</th><th>Support</th></tr></thead><tbody>
+    {% for c, m in pc.items() %}<tr><td>{{ c }}</td><td>{{ m.precision|pct }}</td><td>{{ m.recall|pct }}</td><td>{{ m.f1|pct }}</td><td>{{ m.support }}</td></tr>{% endfor %}
+    </tbody></table>
+    {% if report.distress_binary_test %}<p class="small">Distress vs Normal (binary view): accuracy {{ report.distress_binary_test.accuracy|pct }}, recall {{ report.distress_binary_test.recall|pct }}, F1 {{ report.distress_binary_test.f1|pct }}.</p>{% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+{% if report %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+  const models = {{ report.models|tojson }};
+  const names = Object.keys(models).sort();
+  const metric = (k) => names.map(n => +(models[n].test[k] * 100).toFixed(2));
+  let chart;
+  function draw() {
+    const dark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+    Chart.defaults.color = dark ? '#98a2b3' : '#667085'; Chart.defaults.font.family = 'Inter, system-ui, sans-serif';
+    const grid = dark ? 'rgba(255,255,255,.08)' : 'rgba(16,24,40,.06)';
+    if (chart) chart.destroy();
+    chart = new Chart(document.getElementById('chart'), {
+      type: 'bar',
+      data: { labels: names, datasets: [
+        { label: 'Accuracy', data: metric('accuracy'), backgroundColor: '#6366f1', borderRadius: 4 },
+        { label: 'Recall', data: metric('recall'), backgroundColor: '#06b6d4', borderRadius: 4 },
+        { label: 'F1', data: metric('f1'), backgroundColor: '#a855f7', borderRadius: 4 },
+        {% if report.task != 'multiclass' %}{ label: 'ROC-AUC', data: metric('roc_auc'), backgroundColor: '#f59e0b', borderRadius: 4 },{% endif %}
+      ]},
+      options: { responsive: true, plugins: { legend: { labels: { usePointStyle: true } } },
+        scales: { y: { beginAtZero: true, max: 100, grid: { color: grid }, ticks: { callback: v => v + '%' } }, x: { grid: { display: false } } } }
+    });
+  }
+  draw(); document.addEventListener('hp-theme', draw);
+  document.querySelector('[data-bs-target="#tab-chart"]').addEventListener('shown.bs.tab', draw);
+</script>
+{% endif %}
+{% endblock %}

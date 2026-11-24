@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% from "_macros.html" import mod_icon with context %}
+{% block content %}
+{% set mh = hl.get('mental_health', {}) %}{% set st = hl.get('stroke', {}) %}{% set db = hl.get('diabetes', {}) %}
+<section class="hero p-4 p-md-5 mb-5 fade-up">
+  <div class="row g-5 align-items-center">
+    <div class="col-lg-7">
+      <span class="hero-badge mb-3"><i class="bi bi-stars"></i> Machine-learning health screening</span>
+      <h1 class="display-5 fw-bold mb-3">Spot health risks early,<br>before they become serious.</h1>
+      <p class="lead mb-4">One place to screen for <b>mental-health</b> warning signs from everyday text, and for <b>brain stroke</b> and <b>diabetes</b> risk from routine clinical values. Then take one clear report to your doctor.</p>
+      <div class="d-flex flex-wrap gap-2 mb-4">
+        {% if current_user.is_authenticated %}
+          <a class="btn btn-white btn-lg" href="{{ url_for('main.dashboard') }}"><i class="bi bi-grid me-1"></i> Open my dashboard</a>
+          <a class="btn btn-ghost-light btn-lg" href="{{ url_for('report.combined') }}">My health report</a>
+        {% else %}
+          <a class="btn btn-white btn-lg" href="{{ url_for('auth.register') }}">Start free screening <i class="bi bi-arrow-right"></i></a>
+          <a class="btn btn-ghost-light btn-lg" href="{{ url_for('auth.login') }}">I have an account</a>
+        {% endif %}
+      </div>
+      <div class="row g-3">
+        <div class="col-4"><div class="hero-stat"><div class="num">3</div><div class="lbl">conditions in one place</div></div></div>
+        <div class="col-4"><div class="hero-stat"><div class="num">{{ hl.classifiers or 31 }}</div><div class="lbl">ML models compared</div></div></div>
+        <div class="col-4"><div class="hero-stat"><div class="num">{{ (mh.distress.accuracy * 100)|round|int if mh.get('distress') else 94 }}%</div><div class="lbl">distress detection accuracy</div></div></div>
+      </div>
+    </div>
+    <div class="col-lg-5 d-none d-lg-block">
+      <div class="hero-visual">
+        <div class="small fw-semibold mb-2 opacity-75">Sample combined report</div>
+        {% for key, label, risk, pct in [('mental_health', 'Normal', 'Low', 82), ('stroke', 'Low Stroke Risk', 'Low', 9), ('diabetes', 'Diabetic', 'High', 66)] %}
+        <div class="mini d-flex align-items-center gap-3 mb-2">
+          {{ mod_icon(key, 'mod-icon-sm') }}
+          <div class="flex-grow-1"><div class="fw-semibold small">{{ MODULES[key].title }}</div>
+            <div class="prob-bar mt-1"><div class="top" style="width: {{ pct }}%"></div></div></div>
+          <span class="risk-pill risk-{{ risk }}">{{ risk }}</span>
+        </div>
+        {% endfor %}
+        <div class="mini small mt-3"><i class="bi bi-lightbulb text-warning"></i> <b>Next step:</b> ask your doctor for an HbA1c test.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="d-flex justify-content-between align-items-end mb-3">
+  <div><div class="section-title">Screenings</div><h2 class="h3 mb-0">Choose what to check</h2></div>
+</div>
+<div class="row g-4 mb-5">
+  {% for key, m in MODULES.items() %}
+  {% set h = hl.get(key) %}
+  <div class="col-md-4 fade-up d{{ loop.index }}">
+    <div class="card h-100 card-hover module-card accent-{{ m.color }}">
+      <div class="card-body p-4 d-flex flex-column">
+        <div class="d-flex justify-content-between align-items-start mb-3">
+          {{ mod_icon(key, 'mod-icon-lg') }}
+          <span class="chip">{{ m.tagline }}</span>
+        </div>
+        <h3 class="h4">{{ m.title }}</h3>
+        <p class="text-muted flex-grow-1">{{ m.summary }}</p>
+        {% if h %}
+        <div class="d-flex gap-3 small mb-3">
+          {% if key == 'mental_health' %}
+            <div><div class="fw-bold fs-5">{{ h.distress.accuracy|pct(0) }}</div><div class="text-muted">distress accuracy</div></div>
+            <div><div class="fw-bold fs-5">7</div><div class="text-muted">categories</div></div>
+          {% else %}
+            <div><div class="fw-bold fs-5">{{ h.test.recall|pct(0) }}</div><div class="text-muted">cases caught</div></div>
+            <div><div class="fw-bold fs-5">{{ h.test.roc_auc|pct(0) }}</div><div class="text-muted">ROC-AUC</div></div>
+          {% endif %}
+          <div><div class="fw-bold fs-5">~1s</div><div class="text-muted">result</div></div>
+        </div>
+        {% endif %}
+        {% if registry.get(key) %}
+          <a href="{{ url_for('predict.form', module=key) }}" class="btn btn-primary">Start screening <i class="bi bi-arrow-right"></i></a>
+        {% else %}
+          <span class="chip">Model not trained yet</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="row g-4 mb-5 align-items-stretch">
+  <div class="col-lg-7">
+    <div class="hp-card h-100">
+      <div class="section-title mb-1">How it works</div>
+      <h2 class="h3 mb-4">From your details to a clear answer</h2>
+      <div class="row g-4">
+        {% for n, title, text in [(1, 'Enter your details', 'Simple forms with units and normal ranges, or a few sentences about how you feel.'),
+                                  (2, 'Models analyse', 'The best of up to 12 trained classifiers, chosen by cross-validation, scores your input.'),
+                                  (3, 'Understand the result', 'See your risk level, the factors behind it and practical next steps.'),
+                                  (4, 'Share with a doctor', 'Download a single PDF report covering all three screenings.')] %}
+        <div class="col-sm-6 d-flex gap-3">
+          <span class="step-num flex-shrink-0">{{ n }}</span>
+          <div><div class="fw-bold">{{ title }}</div><div class="small text-muted">{{ text }}</div></div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-5">
+    <div class="hp-card h-100">
+      <div class="section-title mb-1">Trust &amp; safety</div>
+      <h2 class="h3 mb-4">Built to be careful</h2>
+      {% for icon, title, text in [('bi-shield-lock', 'Private by design', 'Mental-health text is analysed in memory and never stored.'),
+                                   ('bi-life-preserver', 'Safety net', 'Self-harm or violent language always triggers a High-risk alert and helpline.'),
+                                   ('bi-graph-up-arrow', 'Honest accuracy', 'Scores come from held-out test data with no data leakage.')] %}
+      <div class="d-flex gap-3 mb-3">
+        <span class="feature-icon flex-shrink-0"><i class="bi {{ icon }}"></i></span>
+        <div><div class="fw-bold">{{ title }}</div><div class="small text-muted">{{ text }}</div></div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="hp-card text-center py-5" style="background: var(--hp-grad-soft)">
+  <h2 class="h3">Ready to check in on your health?</h2>
+  <p class="text-muted mb-4">It takes about two minutes for all three screenings.</p>
+  <a href="{{ url_for('main.dashboard') if current_user.is_authenticated else url_for('auth.register') }}" class="btn btn-gradient btn-lg">
+    {{ 'Go to dashboard' if current_user.is_authenticated else 'Create your free account' }} <i class="bi bi-arrow-right"></i></a>
+</div>
+{% endblock %}

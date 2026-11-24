@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% from "_macros.html" import risk_badge, gauge, mod_icon with context %}
+{% block title %}Result - {{ spec.title }}{% endblock %}
+{% block content %}
+{% set res = pred.result %}
+{% set details = res.get('details') or {} %}
+{% set factors = res.get('factors') or [] %}
+{% set is_text = pred.module == 'mental_health' %}
+
+<div class="page-header d-flex flex-wrap justify-content-between align-items-center gap-3">
+  <div class="d-flex align-items-center gap-3">
+    {{ mod_icon(pred.module, 'mod-icon-lg') }}
+    <div>
+      <h1 class="mb-0">{{ spec.title }} screening result</h1>
+      <div class="text-muted small">{{ pred.created_at.strftime('%d %b %Y, %H:%M') }} · {{ pred.model_name }} · v{{ pred.model_version }}
+        {% if pred.user_id != current_user.id %} · patient <b>{{ pred.user.name }}</b>{% endif %}</div>
+    </div>
+  </div>
+  <div class="d-flex gap-2 no-print">
+    <a href="{{ url_for('report.single_pdf', pred_id=pred.id) }}" class="btn btn-outline-primary"><i class="bi bi-file-earmark-pdf"></i> PDF</a>
+    <button onclick="window.print()" class="btn btn-light d-none d-md-inline-block"><i class="bi bi-printer"></i></button>
+  </div>
+</div>
+
+{% if details.get('helpline') %}
+<div class="alert alert-danger d-flex gap-3 align-items-center fade-up"><i class="bi bi-telephone-fill fs-4"></i><div><b>{{ details.helpline }}</b></div></div>
+{% endif %}
+{% if details.get('harm_alert') %}
+<div class="alert alert-danger d-flex gap-3 align-items-center fade-up"><i class="bi bi-exclamation-octagon-fill fs-4"></i><div><b>{{ details.harm_alert }}</b></div></div>
+{% endif %}
+{% if details.get('uncertain') %}
+<div class="alert alert-secondary d-flex gap-3 align-items-center fade-up"><i class="bi bi-question-circle fs-4"></i>
+  <div><b>Uncertain result.</b> The model is not confident: "{{ pred.label }}" and "{{ details.runner_up }}" are close. Try writing a few more sentences about how you have been feeling for a more reliable screening.</div></div>
+{% endif %}
+
+<div class="result-hero tone-{{ pred.risk_level }} mb-4 fade-up">
+  <div class="row g-4 align-items-center">
+    <div class="col-md-7">
+      <div class="section-title mb-2">Prediction</div>
+      <div class="result-label mb-2">{{ pred.label }}</div>
+      <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+        {{ risk_badge(pred.risk_level) }}
+        {% if is_text %}<span class="chip"><i class="bi bi-activity"></i> Distress: {{ 'Yes' if details.get('distress') else 'No' }}</span>{% endif %}
+        {% if details.get('safety_override') %}<span class="chip" style="background:var(--risk-high-bg);color:var(--risk-high)"><i class="bi bi-shield-exclamation"></i> Flagged by safety rules</span>{% endif %}
+      </div>
+      <p class="mb-0 text-muted">
+        {% if details.get('safety_override') %}
+          Phrases in your text matched our safety rules, so this result is shown as High risk. The ML model on its own said <b>{{ details.model_label }}</b> ({{ pred.probability|pct }}).
+        {% elif is_text %}
+          The model is {{ pred.probability|pct(0) }} confident that the text matches the <b>{{ pred.label }}</b> category.
+        {% else %}
+          The estimated probability is <b>{{ pred.probability|pct }}</b>. Results at or above <b>{{ res.threshold|pct(0) }}</b> are flagged, a cut-off tuned so that real cases are rarely missed.
+        {% endif %}
+      </p>
+    </div>
+    <div class="col-md-5">
+      {{ gauge(pred.probability, pred.risk_level, 'model confidence' if is_text else 'estimated risk') }}
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-7">
+    {% if is_text %}
+    <div class="hp-card mb-4">
+      <h5 class="mb-3">Category breakdown</h5>
+      {% for c, p in details.get('class_probabilities', {}).items() %}
+      <div class="prob-row">
+        <div class="d-flex justify-content-between small mb-1"><span class="{{ 'fw-bold' if c == details.get('model_label', pred.label) }}">{{ c }}</span><span class="fw-semibold">{{ p|pct }}</span></div>
+        <div class="prob-bar"><div class="{{ 'top' if loop.first }}" style="width:0" data-width="{{ (p * 100)|round(1) }}%"></div></div>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="hp-card">
+      <h5 class="mb-1">What influenced this result</h5>
+      <p class="small text-muted">{% if details.get('safety_override') %}<span class="text-danger fw-semibold">Red</span> = phrases caught by the safety rules · other tags = words the ML model weighed towards "{{ details.model_label }}".{% else %}Words and phrases from your text that pushed the model towards "{{ pred.label }}".{% endif %}</p>
+      {% if factors %}
+        <div>{% for f in factors %}<span class="word-tag {{ 'safety' if f.feature == 'safety' }}">{% if f.feature == 'safety' %}<i class="bi bi-exclamation-triangle"></i>{% endif %}{{ f.label }}</span>{% endfor %}</div>
+      {% else %}<div class="empty py-3"><i class="bi bi-search"></i>No single word stood out.</div>{% endif %}
+      <div class="small text-muted mt-2"><i class="bi bi-shield-lock"></i> Your text itself has not been stored.</div>
+    </div>
+    {% else %}
+    <div class="hp-card mb-4">
+      <h5 class="mb-1">What influenced this result</h5>
+      <p class="small text-muted mb-3">How much each value moves your risk compared with a typical value for that factor.</p>
+      {% if factors %}
+        {% set maxe = factors|map(attribute='effect')|map('abs')|max %}
+        {% for f in factors %}
+        <div class="factor-row">
+          <div><div class="fw-semibold small">{{ f.label }}</div><div class="small text-muted">{{ f.value|num }}</div></div>
+          <div class="d-flex align-items-center gap-2">
+            <div class="factor-track flex-grow-1"><span class="mid"></span>
+              <span class="factor-fill {{ 'up' if f.direction == 'raises' else 'down' }}" style="width:0" data-width="{{ (f.effect|abs / maxe * 50)|round(1) }}%"></span></div>
+            <span class="small fw-bold {{ 'text-risk-High' if f.direction == 'raises' else 'text-risk-Low' }}" style="min-width:3.2rem;text-align:right">{{ '+' if f.direction == 'raises' else '−' }}{{ (f.effect|abs * 100)|round(0)|int }} pts</span>
+          </div>
+        </div>
+        {% endfor %}
+        <div class="d-flex justify-content-between small text-muted mt-2"><span><i class="bi bi-arrow-down text-success"></i> lowers risk</span><span>raises risk <i class="bi bi-arrow-up text-danger"></i></span></div>
+      {% else %}<div class="empty py-3"><i class="bi bi-search"></i>No single factor stood out.</div>{% endif %}
+    </div>
+    <div class="hp-card">
+      <h5 class="mb-3">Your values</h5>
+      <div class="table-responsive"><table class="table table-sm align-middle mb-0">
+        <thead><tr><th>Measurement</th><th class="text-end">Value</th><th class="text-end d-none d-sm-table-cell">Typical range</th><th></th></tr></thead>
+        <tbody>
+        {% for f in spec.fields %}
+          {% set v = pred.inputs.get(f.name) %}
+          {% set status = range_status(f, v) %}
+          <tr><td class="text-muted">{{ f.label }}</td>
+            <td class="text-end fw-semibold">{% if v is none %}<span class="text-muted fw-normal">not provided</span>
+              {% elif f.type == 'select' %}{% for ov, ol in f.options %}{% if ov|string == v|string %}{{ ol }}{% endif %}{% endfor %}
+              {% else %}{{ v|num }} <span class="small text-muted fw-normal">{{ f.unit or '' }}</span>{% endif %}</td>
+            <td class="text-end small text-muted d-none d-sm-table-cell">{% if f.normal %}{{ f.normal[0] }}–{{ f.normal[1] }}{% endif %}</td>
+            <td class="text-end">{% if status %}<span class="status-chip status-{{ status }}">{{ status }}</span>{% endif %}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table></div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="col-lg-5">
+    <div class="sticky-side d-grid gap-3">
+      <div class="hp-card">
+        <h5 class="mb-3"><i class="bi bi-signpost-2 text-primary me-1"></i> What to do next</h5>
+        <ul class="list-unstyled tip-list mb-0">
+          {% for tip in advice_for(pred.module, pred.risk_level) %}<li class="d-flex gap-2"><i class="bi bi-check2-circle"></i><span>{{ tip }}</span></li>{% endfor %}
+        </ul>
+      </div>
+      <div class="alert alert-warning mb-0 small"><i class="bi bi-info-circle"></i> {{ DISCLAIMER }}</div>
+      <div class="d-grid gap-2 no-print">
+        <a href="{{ url_for('report.combined') }}" class="btn btn-outline-primary"><i class="bi bi-file-earmark-medical"></i> View combined report</a>
+        <a href="{{ url_for('predict.form', module=pred.module) }}" class="btn btn-primary"><i class="bi bi-arrow-repeat"></i> New {{ spec.title|lower }} screening</a>
+        {% for key, m in MODULES.items() if key != pred.module %}
+        <a href="{{ url_for('predict.form', module=key) }}" class="btn btn-light text-start"><i class="bi {{ m.icon }} me-1"></i> Also check {{ m.title|lower }} <i class="bi bi-arrow-right float-end mt-1"></i></a>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

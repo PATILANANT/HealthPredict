@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Training run #{{ run.id }}{% endblock %}
+{% block content %}
+<h3>Training run #{{ run.id }} - {{ MODULES[run.module].title }}</h3>
+<p>Status: <b>{{ run.status }}</b> · promoted: <b>{{ 'yes' if run.promoted else 'no' }}</b> · started {{ run.started_at.strftime('%d %b %Y %H:%M:%S') }}</p>
+{% if run.status == 'running' %}<p class="text-muted">Still running - refresh this page in a minute.</p>{% endif %}
+<pre class="log">{{ run.log or '(no output yet)' }}</pre>
+<a href="{{ url_for('admin.models') }}" class="btn btn-outline-primary">Back</a>
+{% endblock %}

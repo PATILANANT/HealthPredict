@@ -1,0 +1,61 @@
+HEALTHPREDICT - SAMPLE TEST INPUTS (user: Anant)
+=================================================
+Register at http://127.0.0.1:5000/register  ->  Name: Ganesh  Email: ganesh@example.com  Password: ganesh12345
+Each mental health text below was checked against the trained model: shown are the expected result and its probability.
+
+--------------------------------------------------
+MENTAL HEALTH  (paste the text, tick the consent box, click Predict)
+--------------------------------------------------
+
+1) Expected: Normal (Low risk, 72%)
+Had a really nice day today. Went to college, attended the lectures, played cricket with friends in the evening and had dinner with my family. Looking forward to the weekend trip.
+
+2) Expected: Stress (Moderate risk, 73%)
+Exams start next week and I still have three assignments pending. My manager keeps adding work and I have no time to relax. I am so stressed and tense all the time.
+
+3) Expected: Anxiety (Moderate risk, 87%)
+My heart keeps racing and I feel restless and nervous all the time. I keep worrying that something bad will happen and I cannot calm down. My hands shake before every meeting.
+
+4) Expected: Depression (High risk, 85%)
+I feel empty and sad every single day. Nothing makes me happy anymore, I have lost interest in everything I used to enjoy and I just stay in bed. I feel worthless.
+
+5) Expected: Bipolar (Moderate risk, 77%)
+Last week I barely slept, felt on top of the world and spent all my money on random things. Now I have crashed again and cannot get out of bed. These mood swings with my bipolar meds are exhausting.
+
+6) Expected: Personality disorder (Moderate risk, 69%)
+I constantly fear people will abandon me. My sense of who I am keeps changing and I push people away and then beg them to stay. My therapist mentioned BPD and avoidant personality traits.
+
+7) Expected: Suicidal (High risk, 88%) - result page also shows the helpline message
+I do not want to live anymore. I have been thinking about ending my life, everyone would be better off without me. I cannot take this pain any longer.
+
+8) Expected: Anger / violent thoughts (High risk) - flagged by the SAFETY RULES, red phrases + alert
+i loved my gf soooo muchh... but my girlfrriend left me for another guy... I really loved her so  muchh.. I wont spare that guyy.. he will diserve worsttt.. i want to kill himm
+
+9) Slang check - the SAFETY RULES ignore this (no red phrases, no "Flagged by safety rules").
+   Known limitation: the ML model on its own still says Suicidal, because "kill"/"killing me" is very
+   frequent in the Suicidal posts of the training data. Good example of a false positive for the viva.
+This traffic is killing me, worst day. I will kill this exam tomorrow though, I killed it in the mock test!
+
+--------------------------------------------------
+BRAIN STROKE
+--------------------------------------------------
+High risk:  Gender Male, Age 72, Hypertension Yes, Heart disease Yes, Ever married Yes,
+            Work type Private, Residence Urban, Avg glucose 210.5, BMI 31, Smoking Formerly smoked
+Low risk:   Gender Female, Age 25, Hypertension No, Heart disease No, Ever married No,
+            Work type Private, Residence Urban, Avg glucose 85, BMI 22, Smoking Never smoked
+
+--------------------------------------------------
+DIABETES
+--------------------------------------------------
+High risk:  Pregnancies 2, Glucose 165, Blood pressure 80, Skin thickness (blank), Insulin (blank),
+            BMI 34.5, Pedigree 0.6, Age 50
+Low risk:   Pregnancies 0, Glucose 85, Blood pressure 70, Skin thickness 20, Insulin 80,
+            BMI 21.5, Pedigree 0.2, Age 24
+
+--------------------------------------------------
+VALIDATION CHECKS (should show red error messages)
+--------------------------------------------------
+Diabetes Glucose = 900        -> "must be between 40 and 300"
+Diabetes Glucose = abc        -> "must be a number"
+Mental text = "hi"            -> "at least 15 characters"
+Mental text without consent   -> "Please give consent"

@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% from "_macros.html" import history_table, latest_cards with context %}
+{% block title %}{{ patient.name }} - Patient{% endblock %}
+{% block content %}
+<a href="{{ url_for('doctor.patients') }}" class="small text-decoration-none"><i class="bi bi-arrow-left"></i> All patients</a>
+<div class="page-header d-flex flex-wrap justify-content-between align-items-center gap-3 mt-2">
+  <div class="d-flex align-items-center gap-3">
+    <span class="avatar avatar-lg">{{ patient.name[:1]|upper }}</span>
+    <div><h1 class="mb-0">{{ patient.name }}</h1><div class="text-muted">{{ patient.email }} · registered {{ patient.created_at.strftime('%d %b %Y') }} · {{ history|length }} screenings</div></div>
+  </div>
+  {% if latest %}<a href="{{ url_for('report.user_pdf', user_id=patient.id) }}" class="btn btn-primary"><i class="bi bi-file-earmark-pdf"></i> Download report</a>{% endif %}
+</div>
+{{ latest_cards(latest, link=false) }}
+<div class="card mt-4"><div class="card-body p-4">
+  <h5 class="mb-2">All screenings</h5>
+  {{ history_table(history) }}
+</div></div>
+{% endblock %}

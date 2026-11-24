@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Profile - HealthPredict{% endblock %}
+{% block content %}
+<div class="page-header d-flex align-items-center gap-3">
+  <span class="avatar avatar-lg">{{ current_user.name[:1]|upper }}</span>
+  <div><h1 class="mb-0">{{ current_user.name }}</h1><div class="text-muted">{{ current_user.email }} · <span class="chip">{{ current_user.role }}</span></div></div>
+</div>
+<div class="row g-4">
+  <div class="col-lg-4">
+    <div class="hp-card h-100">
+      <h5 class="mb-3">Account</h5>
+      <dl class="mb-0">
+        <dt class="small text-muted fw-normal">Name</dt><dd class="fw-semibold">{{ current_user.name }}</dd>
+        <dt class="small text-muted fw-normal">Email</dt><dd class="fw-semibold">{{ current_user.email }}</dd>
+        <dt class="small text-muted fw-normal">Member since</dt><dd class="fw-semibold">{{ current_user.created_at.strftime('%d %b %Y') }}</dd>
+        <dt class="small text-muted fw-normal">Screenings</dt><dd class="fw-semibold mb-0">{{ current_user.predictions.count() }}</dd>
+      </dl>
+    </div>
+  </div>
+  <div class="col-lg-8">
+    <div class="hp-card">
+      <h5><i class="bi bi-key text-primary"></i> REST API key</h5>
+      <p class="small text-muted">Use this key in the <code>X-API-Key</code> header to call the prediction API from other apps (for example a mobile client).</p>
+      <div class="input-group mb-3">
+        <input id="apikey" class="form-control font-monospace" readonly value="{{ current_user.api_key }}">
+        <button class="btn btn-light border" type="button" onclick="navigator.clipboard.writeText(document.getElementById('apikey').value);this.innerHTML='<i class=\'bi bi-check2\'></i> Copied'"><i class="bi bi-clipboard"></i> Copy</button>
+      </div>
+      <form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="regenerate">
+        <button class="btn btn-outline-primary btn-sm"><i class="bi bi-arrow-repeat"></i> Generate new key</button></form>
+      <div class="section-title mt-4 mb-2">Example request</div>
+<pre class="log mb-0"><code>curl -X POST {{ request.host_url }}api/v1/predict/diabetes \
+  -H "X-API-Key: {{ current_user.api_key }}" -H "Content-Type: application/json" \
+  -d '{"Pregnancies": 2, "Glucose": 150, "BloodPressure": 80, "BMI": 32.5, "Age": 45}'</code></pre>
+    </div>
+  </div>
+</div>
+{% endblock %}
