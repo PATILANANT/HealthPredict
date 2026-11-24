@@ -1,0 +1,14 @@
+# Keep shell scripts on LF so they run on macOS/Linux even when committed from Windows
+*.sh text eol=lf
+start.sh text eol=lf
+
+# Windows batch files need CRLF
+*.bat text eol=crlf
+
+# Let Git normalise everything else
+* text=auto
+
+# Binary files
+*.joblib binary
+*.pdf binary
+*.png binary
